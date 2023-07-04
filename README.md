@@ -35,8 +35,56 @@ Please see the demo for sample code. Use:
 * Use `<filter-container delimiter=",">` if your content elements may have more than one filter value assigned (in this example delimited by a comma).
   * For example, Egypt is in both Africa and Asia: `<li data-filter-continent="africa,asia">Egypt</li>`
 
-## Changelog
+#### Pagination
 
+* Use `<filter-container data-paginate-results="5">` to paginate results into groups of 5 (or any other integer you choose).
+* You must also add a `<nav>` element within the component with a `data-pagination-navigation` attribute:
+
+  ```html
+  <nav data-pagination-navigation>
+  </nav>
+  ```
+
+  This `<nav>` element must contain at minimum:
+
+  * Links with the `rel="prev"` and `rel="next"` attributes;
+  * A `<template>` element with the `data-pagination-link` attribute which contains a link:
+
+  ```html
+  <template data-pagination-link>
+      <a href="" data-page></a>
+  </template>
+  ```
+
+  The links can also be wrapped in `<li>` elements within a `<ul>`. So the `<nav>` element can either contain:
+
+  ```html
+  <a href="#" rel="prev">Previous</a>
+  <a href="#" rel="next">Next</a>
+  <template data-pagination-link>
+    <a href="#" data-page></a>
+  </template>
+  ```
+
+  Or:
+
+  ```html
+  <ul>
+    <li><a href="#" rel="prev">Previous</a></li>
+    <li><a href="#" rel="next">Next</a></li>
+    <template data-pagination-link>
+      <li><a href="#" data-page></a></li>
+    </template>
+  </ul>
+  ```
+
+  If the `<nav>` element, the previous and next links, and the template are not present, pagination will not be applied.
+* Add a child element to the component with the `data-pagination-results` attribute and `aria-live="polite"` and screen readers will announce pagination changes.
+
+
+### v4.0.0
+
+- Add support for [pagination](#pagination).
 ### v3.0.4
 
 - Add support for `filter-mode="all"` on `<filter-container>` to enable AND-ing filters for all multi-select form elements (checkboxes). Use `filter-mode-KEY_NAME="any"` to override back to the default.
