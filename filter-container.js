@@ -448,7 +448,11 @@ class FilterContainer extends HTMLElement {
     }
 
     // Pagination navigation requires a container with a pagination link template as well as previous and next links.
-    return this._paginationNavigation && this._paginationLink && this._previousLink && this._nextLink;
+    if (!this._paginationNavigation || !this._paginationLink || !this._previousLink || !this._nextLink) {
+      return false;
+    }
+    
+    return this._paginationNavigation;
   }
 
   _renderPaginationNavigation() {
