@@ -441,9 +441,9 @@ class FilterContainer extends HTMLElement {
   get paginationNavigation() {
     if(!this._lookedFor.paginationNavigation) {
       this._paginationNavigation = this.querySelector(`:scope [${this.attrs.paginationNavigation}]`);
-      this._paginationLink = this.querySelector(`:scope [${this.attrs.paginationLink}]`);
-      this._previousLink = this._paginationNavigation.querySelector('[rel="prev"]');
-      this._nextLink = this._paginationNavigation.querySelector('[rel="next"]');
+      this._paginationLink = this.querySelector(`:scope [${this.attrs.paginationNavigation}] [${this.attrs.paginationLink}]`);
+      this._previousLink = this.querySelector(`:scope [${this.attrs.paginationNavigation}] [rel="prev"]`);
+      this._nextLink = this.querySelector(`:scope [${this.attrs.paginationNavigation}] [rel="next"]`);
       this._lookedFor.paginationNavigation = true;
     }
 
