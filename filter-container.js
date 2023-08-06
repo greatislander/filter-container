@@ -9,6 +9,10 @@ class FilterContainer extends HTMLElement {
       bind: "data-filter-key",
       results: "data-filter-results",
       resultsExclude: "data-filter-results-exclude",
+      paginateResults: "data-paginate-results",
+      paginationResults: "data-pagination-results",
+      paginationNavigation: "data-pagination-navigation",
+      paginationLink: "data-pagination-link"
     };
     this.classes = {
       enhanced: "filter-container--js",
@@ -25,6 +29,10 @@ class FilterContainer extends HTMLElement {
 
     this.classList.add(this.classes.enhanced);
 
+    if (this.getAttribute(this.attrs.paginateResults) || false) {
+      this.dataset.page = 1;
+    }
+
     this.bindEvents(this.formElements);
 
     if(this.hasAttribute(this.attrs.oninit)) {
@@ -32,11 +40,15 @@ class FilterContainer extends HTMLElement {
       // Navigate to a filterable page, navigate away, use the back button to return
       // (connectedCallback would filter before the DOM was ready)
       window.setTimeout(() => {
+        this.initPagination();
+
         for(let key in this.formElements) {
           this.initFormElements(this.formElements[key]);
           this.applyFilterForKey(key);
           this.renderResultCount(true);
         }
+
+        this.renderPaginationNavigation(true);
       }, 0);
     }
   }
@@ -103,8 +115,90 @@ class FilterContainer extends HTMLElement {
         this.applyFilterForElement(closest);
         requestAnimationFrame(() => {
           this.renderResultCount();
+          this.renderPaginationNavigation();
         });
       }
+    }, false);
+
+    this.addEventListener("click", e => {
+      if (e.target.tagName === 'A' && e.target.closest(`[${this.attrs.paginationNavigation}]`) || e.target.closest(`[${this.attrs.paginationNavigation}] a`)) {
+        e.preventDefault();
+
+        let pageCount = this.getPageCount();
+        let currentPage = parseInt(this.dataset.page);
+        let newPage;
+        let prevLink = this.querySelector(`[${this.attrs.paginationNavigation}] [rel="prev"]`);
+        let nextLink = this.querySelector(`[${this.attrs.paginationNavigation}] [rel="next"]`);
+
+        if (e.target.closest('a').getAttribute('rel')) {
+          if (e.target.closest('a').getAttribute('rel') === 'prev') {
+            if (currentPage > 1) {
+              newPage = currentPage - 1;
+            }
+          }
+          
+          if (e.target.closest('a').getAttribute('rel') === 'next') {
+            if (currentPage < pageCount) {
+              newPage = currentPage + 1;
+            }
+          }
+        }
+  
+        if (e.target.closest('a').dataset.page) {
+          newPage = parseInt(e.target.closest('a').dataset.page);
+        }
+
+        this.dataset.page = newPage;
+
+        this.applyPagination(newPage);
+
+        prevLink.href = this.generatePaginationUrl(newPage - 1);
+        nextLink.href = this.generatePaginationUrl(newPage + 1);
+
+        if (newPage === 1) {
+          if (prevLink.parentElement.tagName === 'LI') {
+            prevLink.parentElement.setAttribute('hidden', true);
+          } else {
+            prevLink.setAttribute('hidden', true);
+          }
+          prevLink.href = "#";
+        }
+
+        if (newPage > 1) {
+          if (prevLink.parentElement.tagName === 'LI') {
+            prevLink.parentElement.removeAttribute('hidden');
+          } else {
+            prevLink.removeAttribute('hidden');
+          }
+        }
+        
+        if (newPage === pageCount) {
+          if (nextLink.parentElement.tagName === 'LI') {
+            nextLink.parentElement.setAttribute('hidden', true);
+          } else {
+            nextLink.setAttribute('hidden', true);
+          }
+          nextLink.href = "#";
+        }
+
+        if (newPage < pageCount) {
+          if (nextLink.parentElement.tagName === 'LI') {
+            nextLink.parentElement.removeAttribute('hidden');
+          } else {
+            nextLink.removeAttribute('hidden');
+          }
+        }
+
+        this.querySelector(`[${this.attrs.paginationNavigation}] [aria-current="page"]`)?.removeAttribute('aria-current');
+        this.querySelector(`[${this.attrs.paginationNavigation}] [data-page="${newPage}"]`)?.setAttribute('aria-current', 'page');
+        this.renderResultCount();
+
+        if(!this.hasAttribute(this.attrs.leaveUrlAlone)) {
+          this.updateUrl('page', [newPage]);
+        }
+
+      }
+      return false;
     }, false);
   }
 
@@ -122,6 +216,17 @@ class FilterContainer extends HTMLElement {
         }
       }
     }
+  }
+
+  initPagination() {
+    if (!this.paginationNavigation) {
+      return false;
+    }
+
+    let params = new URLSearchParams(this.getUrlSearchValue());
+    let currentPage = parseInt(params.get('page')) || 1;
+    let pageCount = this.getPageCount();
+    this.dataset.page = currentPage > pageCount ? pageCount : currentPage;
   }
 
   getFormElementKey(formElement) {
@@ -170,6 +275,10 @@ class FilterContainer extends HTMLElement {
         element.classList.add(cls);
       }
     }
+
+    if (this.getAttribute(this.attrs.paginateResults) || false) {
+      this.applyPagination();
+    }
   }
 
   applyFilterForElement(formElement) {
@@ -184,6 +293,44 @@ class FilterContainer extends HTMLElement {
     }
     let map = this._getMap(key);
     this._applyMapForKey(key, map);
+  }
+
+  applyPagination(currentPage) {
+    if (!this.paginationNavigation) {
+      return false;
+    }
+
+    let keys = this.getAllKeys();
+    let selector = keys.map(key => {
+      return `:scope [${this.getElementSelector(key)}]`;
+    }).join(",");
+    let elements = this.querySelectorAll(selector);
+
+    let paginationSize = this.getAttribute(this.attrs.paginateResults) || false;
+
+    if (elements.length)
+
+    if (!currentPage) {
+      let pageCount = this.dataset.pages;
+      currentPage = parseInt(this.dataset.page) < pageCount ? parseInt(this.dataset.page) : 1;
+    }
+
+    let i = 1;
+    let paginationCls = `pagination--hide`;
+
+    elements.forEach(element => {
+      if(this.elementIsVisible(element)) {        
+        if (Math.ceil(i / paginationSize) !== currentPage) {
+          element.classList.add(paginationCls);
+        } else {
+          element.classList.remove(paginationCls);
+        }
+
+        i++;
+      } else {
+        element.removeAttribute('data-page');
+      }
+    });
   }
 
   _hasValue(needle, haystack = [], mode = "any") {
@@ -250,9 +397,146 @@ class FilterContainer extends HTMLElement {
     let elements = this.querySelectorAll(selector);
 
     return Array.from(elements)
+    .filter(entry => this.elementIsVisible(entry))
+    .filter(entry => !this.elementIsExcluded(entry))
+    .length;
+  }
+
+  getPageCount() {
+    if (!this.paginationNavigation) {
+      return false;
+    }
+
+    let paginationSize = this.getAttribute(this.attrs.paginateResults) || false;
+
+    if (paginationSize) {
+      let keys = this.getAllKeys();
+      let selector = keys.map(key => {
+        return `:scope [${this.getElementSelector(key)}]`;
+      }).join(",");
+      let elements = this.querySelectorAll(selector);
+
+      return Math.ceil(Array.from(elements)
       .filter(entry => this.elementIsVisible(entry))
       .filter(entry => !this.elementIsExcluded(entry))
-      .length;
+      .length / paginationSize);
+    }
+
+    return false;
+  }
+
+  /**
+   * Paginator
+   */
+
+  get paginationResults() {
+    if(!this._lookedFor.paginationResults) {
+      this._paginationResults = this.querySelector(`:scope [${this.attrs.paginationResults}]`);
+      this._lookedFor.paginationResults = true;
+    }
+
+    return this._paginationResults;
+  }
+
+  get paginationNavigation() {
+    if(!this._lookedFor.paginationNavigation) {
+      this._paginationNavigation = this.querySelector(`:scope [${this.attrs.paginationNavigation}]`);
+      this._paginationLink = this.querySelector(`:scope [${this.attrs.paginationNavigation}] [${this.attrs.paginationLink}]`);
+      this._previousLink = this.querySelector(`:scope [${this.attrs.paginationNavigation}] [rel="prev"]`);
+      this._nextLink = this.querySelector(`:scope [${this.attrs.paginationNavigation}] [rel="next"]`);
+      this._lookedFor.paginationNavigation = true;
+    }
+
+    // Pagination navigation requires a container with a pagination link template as well as previous and next links.
+    if (!this._paginationNavigation || !this._paginationLink || !this._previousLink || !this._nextLink) {
+      return false;
+    }
+    
+    return this._paginationNavigation;
+  }
+
+  _renderPaginationNavigation() {
+    if(!this.paginationNavigation) {
+      return;
+    }
+
+    [...this.paginationNavigation.querySelectorAll('[data-page]')].forEach(link => {
+      if (link.parentElement.tagName === 'LI') {
+        link.parentElement.remove();
+      } else {
+        link.remove();
+      }
+    });
+
+    let prev = this.paginationNavigation.querySelector('[rel="prev"]').parentElement.tagName === 'LI'
+      ? this.paginationNavigation.querySelector('[rel="prev"]').parentElement
+      : this.paginationNavigation.querySelector('[rel="prev"]');
+
+    let next = this.paginationNavigation.querySelector('[rel="next"]').parentElement.tagName === 'LI'
+      ? this.paginationNavigation.querySelector('[rel="next"]').parentElement
+      : this.paginationNavigation.querySelector('[rel="next"]');
+
+    let count = this.getPageCount();
+
+    if (count <= 1) {
+      this.paginationNavigation.hidden = true;
+    } else {
+      this.paginationNavigation.removeAttribute('hidden');
+    }
+
+    let current = parseInt(this.dataset.page);
+
+    if (current === 1) {
+      prev.setAttribute('hidden', true);
+    }
+
+    if (current > count) {
+      current = 1;
+      if(!this.hasAttribute(this.attrs.leaveUrlAlone)) {
+        this.updateUrl('page', [1]);
+      }
+    }
+
+    let template = this.querySelector(`:scope [${this.attrs.paginationLink}]`);
+    
+    let i = 1;
+
+    while (i <= count) {
+      if (!this.paginationNavigation.querySelector(`a[data-page="${i}"]`)) {
+        let clone = template.content.cloneNode(true);
+        let linkParent;
+        let link = clone.querySelector('a');
+        if (link.parentElement) {
+          linkParent = link.parentElement;
+        }
+  
+        link.dataset.page = i;
+        link.setAttribute('href', this.generatePaginationUrl(i));
+        link.innerText = i;
+  
+        if (i == current) {
+          link.setAttribute("aria-current", "page");
+        }
+  
+        if (linkParent) {
+          linkParent.appendChild(link);
+      
+          next.before(linkParent);
+        } else {
+          next.before(link);
+        }
+      }
+
+      i++; 
+    }
+  }
+
+  renderPaginationNavigation(isOnload = false) {
+    if(!this.paginationNavigation) {
+      return;
+    }
+
+    this._renderPaginationNavigation();
   }
 
   elementIsVisible(element) {
@@ -300,11 +584,26 @@ class FilterContainer extends HTMLElement {
       // This timeout helped VoiceOver
       clearTimeout(this.timeout);
       this.timeout = setTimeout(() => {
-        this._renderResultCount()
+        this._renderResultCount();
+        this._renderPaginationResults();
       }, 250);
     } else {
       this._renderResultCount();
+      this._renderPaginationResults();
     }
+  }
+
+  _renderPaginationResults(current) {
+    if(!this.paginationResults) {
+      return;
+    }
+
+    if(!current) {
+      current = parseInt(this.dataset.page);
+    }
+
+    let label = this.paginationResults.getAttribute(this.attrs.paginationResults) || 'page';
+    this.paginationResults.innerText = this.getPageCount() > 0 ? `${label} ${current}` : '';
   }
 
   /*
@@ -340,8 +639,17 @@ class FilterContainer extends HTMLElement {
       }
 
       let baseUrl = window.location.pathname;
-      history.replaceState({}, '', `${baseUrl}${params.toString().length > 0 ? `?${params}`: ""}` );
+      let newUrl = `${baseUrl}${params.toString().length > 0 ? `?${params}`: ""}`;
+      history.replaceState({}, '', newUrl);
     }
+  }
+
+  generatePaginationUrl(page) {
+    let params = new URLSearchParams(this.getUrlSearchValue());
+
+    params.set('page', page);
+
+    return `${window.location.pathname}${params.toString().length > 0 ? `?${params}`: ""}`;
   }
 }
 
