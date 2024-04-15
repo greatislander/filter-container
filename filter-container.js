@@ -108,6 +108,10 @@ class FilterContainer extends HTMLElement {
     return this.modes[key];
   }
 
+  getFuzzy(key) {
+    return this.hasAttribute(`filter-fuzzy-${key}`);
+  }
+
   bindEvents() {
     this.addEventListener("input", e => {
       let closest = e.target.closest(`[${this.attrs.bind}]`);
@@ -333,7 +337,7 @@ class FilterContainer extends HTMLElement {
     });
   }
 
-  _hasValue(needle, haystack = [], mode = "any") {
+  _hasValue(needle, haystack = [], mode = "any", fuzzy = false) {
     if(!haystack || !haystack.length || !Array.isArray(haystack)) {
       return false;
     }
@@ -345,9 +349,17 @@ class FilterContainer extends HTMLElement {
     // all must match
     if(mode === "all") {
       let found = true;
-      for(let lookingFor of haystack) {
-        if(!needle.some((val) => val === lookingFor)) {
-          found = false;
+      if (fuzzy) {
+        for(let lookingFor of haystack) {
+          if(!needle.some((val) => val.toLowerCase().includes(lookingFor.toLowerCase()))) {
+            found = false;
+          }
+        }
+      } else {
+        for(let lookingFor of haystack) {
+          if(!needle.some((val) => val === lookingFor)) {
+            found = false;
+          }
         }
       }
       return found;
@@ -355,8 +367,14 @@ class FilterContainer extends HTMLElement {
 
     for(let lookingFor of needle) {
       // has any, return true
-      if(haystack.some((val) => val === lookingFor)) {
-        return true;
+      if (fuzzy) {
+        if(haystack.some((val) => val.toLowerCase().includes(lookingFor.toLowerCase()))) {
+          return true;
+        }
+      } else {
+        if(haystack.some((val) => val === lookingFor)) {
+          return true;
+        }
       }
     }
     return false;
@@ -370,7 +388,8 @@ class FilterContainer extends HTMLElement {
     let haystack = (element.getAttribute(attributeName) || "").split(this.valueDelimiter);
     let key = this.getKeyFromAttributeName(attributeName);
     let mode = this.getFilterMode(key);
-    if(hasAttr && this._hasValue(haystack, values, mode)) {
+    let fuzzy = this.getFuzzy(key);
+    if(hasAttr && this._hasValue(haystack, values, mode, fuzzy)) {
       return true;
     }
     return false;
