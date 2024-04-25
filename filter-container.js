@@ -12,7 +12,8 @@ class FilterContainer extends HTMLElement {
       paginateResults: "data-paginate-results",
       paginationResults: "data-pagination-results",
       paginationNavigation: "data-pagination-navigation",
-      paginationLink: "data-pagination-link"
+      paginationLink: "data-pagination-link",
+      applyButton: "data-apply-button"
     };
     this.classes = {
       enhanced: "filter-container--js",
@@ -59,6 +60,14 @@ class FilterContainer extends HTMLElement {
     }
 
     return this._valueDelimiter;
+  }
+
+  get applyButton() {
+    if(!this._applyButton) {
+      this._applyButton = this.getAttribute(this.attrs.applyButton) || false;
+    }
+
+    return this._applyButton;
   }
 
   get formElements() {
@@ -114,6 +123,8 @@ class FilterContainer extends HTMLElement {
 
   bindEvents() {
     this.addEventListener("input", e => {
+      if (this.attrs.applyButton && this.querySelector("#" + this.applyButton))
+        return false;
       let closest = e.target.closest(`[${this.attrs.bind}]`);
       if(closest) {
         this.applyFilterForElement(closest);
@@ -125,6 +136,15 @@ class FilterContainer extends HTMLElement {
     }, false);
 
     this.addEventListener("click", e => {
+      if (this.attrs.applyButton && e.target.tagName === 'BUTTON' && e.target.id === this.applyButton) {
+        for(let key in this.formElements) {
+          this.applyFilterForKey(key);
+          this.renderResultCount(true);
+        }
+
+        this.renderPaginationNavigation();
+      }
+
       if (e.target.tagName === 'A' && e.target.closest(`[${this.attrs.paginationNavigation}]`) || e.target.closest(`[${this.attrs.paginationNavigation}] a`)) {
         e.preventDefault();
 
@@ -202,6 +222,7 @@ class FilterContainer extends HTMLElement {
         }
 
       }
+
       return false;
     }, false);
   }
